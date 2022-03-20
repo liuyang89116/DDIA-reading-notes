@@ -124,3 +124,68 @@
 #### leveled compaction (Cassandra)
 * key range is split up into smaller SSTables and older data is moved into separate “levels”
 
+---------
+## B-Trees（应用更广）
+
+### B-Tree 和 SSTables 的异同
+* 相同点：它和 SSTables 一样，也是 keep key-value pairs **sorted by key**
+* 不同点：
+    * Log-structured: break down to **variable-size** segments(several MB or more)
+    * B-Tree: break down to **fixed-size blocks** or pages(4kb)
+
+### 如何 lookup？
+* each page is identified by address or location -> one page is designatated as root
+* trace down from the root to children
+* most DB has 3-4 level depth
+
+![](img/6.png)
+
+### 如何 add a new key？
+
+* find the page -> add it to that page
+* if no enough page -> split into two half-full pages
+
+![](img/7.png)
+
+### B-Tree write 的本质
+* **overwrite** a page on disk with new data
+    * 和 log-structured indexes 有本质的不同（append-only）
+* overwrite 必然导致 write 的效率不如 LSM Tree
+
+### Crash Recovery
+* records write to a write-ahead log(WAL), also known as redo log
+* 先写 redo log，再 overwrite B-Tree records 
+
+### Concurrency control
+* lightweight locks: protect tree's data structures with latches
+    * LSM is simpler: do all the merging without interfering with incoming queries and atomically swap old segments
+
+### B-tree optimizations
+* copy-on-write schema(not directly overwrite)
+    * modified page write to different loc -> a new verison of parent pages created and point to new location
+* not store entire key, abbreviate it
+* lay out the trees -> so that leaf pages appear in sequential order on disk
+* additional pointers added 
+    * e.g. have references to its sibling pages to left and right
+* B-tree variants, e.g. fractal tree borrow some log-structured ideas
+
+-------
+## Comparing B-Trees and LSM-Trees
+
+* 简单来说，就是
+    * **LSM**：write
+    * **B-tree**: read 
+
+### LSM-tree 优点
+* LSM-trees are able to sustain higher write throughput
+    * it has lower write amplification
+* compress better -> produce smaller files
+    * periodically rewrite SSTables to remove fragmentation -> lower storage overheads
+
+### LSM-tree 缺点
+* compaction process can sometimes interfere with performance of ongoing reads and writes
+* at high write throughput, more disk bandwidth is required for compaction when db gets bigger
+* B-tree: each key exists in exactly one place -> easy to offer strong transactional semantics(locks on range of keys)
+    * LSM-tree: may have keys in multiple segments
+
+------------
