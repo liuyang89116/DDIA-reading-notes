@@ -189,3 +189,61 @@
     * LSM-tree: may have keys in multiple segments
 
 ------------
+## Other Indexing Structures
+
+### Secondary Indexes
+
+* add a secondary index -> crucial for performing join efficiently
+* secondary index 的 keys are not unique:
+    * 解决办法：
+        * option 1: make each value in the index a list of matching row ids
+        * option 2: make each key unique by appending a row id to it
+
+### Storing values within the index - storing heap file
+
+* secondary index 的 value 可以是 actual rows（document，vertex） * （more common）the value could also be a reference to the row stored, the place where rows are stored is **heap file**
+    * avoid duplicating data when multiple secondary indexes are present
+* 缺点：相比于直接读到了值，存 ref loc 影响 reads performance
+    * 改进：**clustered index**: store indexed row directly within a index
+        * e.g. InnoDB engine, the PK of a table is always a clustered index; secondary index refer to PK(rather than a heap file loc)
+    * **covering index**（clustered index 和 non clustered index 的折中）: store some of a table's columns within the index 
+    * cluster and covering index: speed up reads, but add overhead on write
+
+### Multi-column indexes
+* concatenated index: combine several fields into one key
+* particularly important for geospatial data
+    * e.g. query a loc with both latitude and longitude columns
+* B-tree: translate 2d loc into single number using a space-filling curve
+* (more common) geospatial index - R-tree
+
+### Full-text search and fuzzy indexes (模糊查询)
+* Lucene: search text for words within a certain edit distance
+    * SSTable-like structure: for term dictionary
+    * in-memory index: similar to trie, a finite state automation over characters in the keys
+
+### In-memory database
+* Memcached: intended for caching use only; acceptable for data lost
+* if aim for durability: 
+    * write log changes to disk; 
+    * write periodic snapshots to disk;
+    * replicate in-memory state to other machines
+* in-memory db is restarted:
+    * reload its state from disk or over the network from other replica
+    * disk is merely used as an append-only log for durability
+    * read is entirely from memory
+
+### 为什么 in-memory db 效率高
+* not due to the fact they don't need to read from disk
+    * 因为 disk-based storage 读了最近的一些 records，也会被 cache
+* because they can avoid overheads of encoding in-memory data in the form that can be written to disk
+* because in-memory db is providing data models that are difficult to implement with disk-based indexes
+    * e.g. Redis provides priority queues and sets
+
+### in-memory db 能支持比 memory 大的数据规模吗？
+* 能
+* anti-caching approach: 
+    * evict the least recently used data from memory to disk
+    * load it back into memory when it is accessed again
+
+---------
+# Transaction Processing or Analytics?
