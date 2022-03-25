@@ -247,3 +247,108 @@
 
 ---------
 # Transaction Processing or Analytics?
+
+* ACID: atomicity, consistency, isolation, durability.
+* transaction doesn't necessarily have ACID, just mean to make low-latency reads and writes
+
+### OLTP - (online transaction processing)
+* focus on processing **transaction**
+
+### OLAP - (online analytic processing)
+* focus on **data analytics**
+* calculate aggregate statistics (expensive query)
+
+![](img/8.png)
+
+---------
+
+## Data Warehousing - run analytics
+
+### Data Warehousing workflow - ETL (Extract-Transform-Load)
+* construct a read-only copy from all the various OLTP systems
+* 如何拿到这些数据：
+    * periodic data dump
+    * continuous stream updates
+
+![](img/9.png)
+
+### Data warehouse product
+* vendors: Teradata, Vertica, SAP HANA, ParAccel
+    * Amazon RedShift is on top of ParAccel
+* SQL-on-Hadoop:
+    * Apache Hive, Spark SQL, Cloudera Impala, Facebook Presto
+
+## Stars and Snowflakes: Schemas for Analytics
+
+### star schema (more popular since it's simpler)
+* **fact table**: each row represents an event that occurred at a particular time(who, what, where, when, how and why)
+* **dimension tables**: represents the who, what, where, when, how and why
+
+![](img/10.png)
+
+### snowflake schema
+* dimensions are further broken down into subdimensions
+* schemas are more normalized
+
+--------
+# Column-Oriented Storage
+
+* data warehouse 的 fact tables query 起来很麻烦。有很多 rows，但 query 只对几个 column 感兴趣。
+* 如何优化呢? - column oriented storage
+
+### basic idea
+* don't store all the values from one row together
+* store all the values **from one column** together
+* if need to reassemble an row -> get same index item from each column file
+
+![](img/11.png)
+
+## Column Compression
+
+### bitmap encoding
+
+![](img/12.png)
+
+### Memory bandwidth and vectorized processing
+* data warehouse query data 的一个 bottleneck: bandwidth for loading data from disk to memory
+    * column-oriented storage layouts are good for making efficient use of CPU cycles
+        * query engine can take **a chunk of** compressed column data and fit them into CPU L1 cache
+        * column compression allows more rows to fit in the same amount of L1 cache
+    * vectorized processing
+        * Operators(bitwise AND and OR) can be designed to operate on such chunks of compressed data directly
+    
+## Sort Order in Column Storage
+
+* data needs to be sorted an entire row at a time
+
+### how to sort?
+* use knowledge of common queries to choose the columns 
+    * 经常搜索 date -> use `date_key` as sort key
+* 定下第一个 sort key，第二个 column 就尽量选 any rows that have the same value in the first column
+* advantage: help compress the columns
+
+### several different sort orders - Vertica
+* replicated to multiple machines
+* different sort orders
+
+## Writing to Column-Oriented Storage
+
+* column-oriented storage 的 read 是提高速度了，但是 write 就麻烦了
+    * B-trees: **not possible** with compressed columns; have to rewrite all column files if insert a row in the middle
+* **LSM-trees**:
+    * first write to in-memory store -> add to a sorted structure -> prepare for writing to disk
+    * accumulate lots of writes -> merged with column files on disk -> write to **new files** in bulk
+    * query: examine column data on disk + recent writes in memory -> combine the two
+
+## Aggregation: Data Cubes and Materialized Views
+
+### materialized view
+
+* data warehouse 的 query 有不同的办法：column storage - 提高效率；还可以用 materialized view - 提前计算存好。
+* materialized view: an actual copy of query results
+
+### data cube (OLAP cube)
+* advantage: certain queries become very fast
+* disadvantage: doesn’t have the same flexibility as querying the raw data
+
+![](img/13.png)
