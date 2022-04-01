@@ -201,7 +201,8 @@
 
 ### Storing values within the index - storing heap file
 
-* secondary index 的 value 可以是 actual rows（document，vertex） * （more common）the value could also be a reference to the row stored, the place where rows are stored is **heap file**
+* secondary index 的 value 可以是 actual rows（document，vertex） 
+* （more common）the value could also be a reference to the row stored, the place where rows are stored is **heap file**
     * avoid duplicating data when multiple secondary indexes are present
 * 缺点：相比于直接读到了值，存 ref loc 影响 reads performance
     * 改进：**clustered index**: store indexed row directly within a index
